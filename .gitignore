@@ -1,0 +1,7 @@
+*~
+*.txt.user
+.*
+!.gitignore
+build
+data
+cmake-build-debug
