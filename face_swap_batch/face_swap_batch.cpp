@@ -23,11 +23,20 @@
 
 // OpenGL
 #include <GL/glew.h>
+#include <GLUT/glut.h>
+
+#if defined(__APPLE__)
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#else
+#include <GL/gl.h>
+#include <GL/glu.h>
+#endif
 
 // Qt
-#include <QApplication>
-#include <QOpenGLContext>
-#include <QOffscreenSurface>
+//#include <QApplication>
+//#include <QOpenGLContext>
+//#include <QOffscreenSurface>
 using std::cout;
 using std::endl;
 using std::cerr;
@@ -104,38 +113,38 @@ int main(int argc, char* argv[])
 {
 	// Parse command line arguments
     string input_path, seg_path, output_path, landmarks_path;
-	string model_3dmm_h5_path, model_3dmm_dat_path;
-	string reg_model_path, reg_deploy_path, reg_mean_path;
-	string seg_model_path, seg_deploy_path;
+    string model_3dmm_h5_path, model_3dmm_dat_path;
+    string reg_model_path, reg_deploy_path, reg_mean_path;
+    string seg_model_path, seg_deploy_path;
     string log_path, cfg_path;
     bool generic, with_expr, with_gpu;
     unsigned int gpu_device_id, verbose;
-	try {
-		options_description desc("Allowed options");
-		desc.add_options()
-			("help,h", "display the help message")
+    try {
+        options_description desc("Allowed options");
+        desc.add_options()
+            ("help,h", "display the help message")
             ("verbose,v", value<unsigned int>(&verbose)->default_value(0), "output debug information [0, 4]")
-			("input,i", value<string>(&input_path)->required(), "path to input directory or image pairs list")
-			("output,o", value<string>(&output_path)->required(), "output directory")
+            ("input,i", value<string>(&input_path)->default_value(""), "path to input directory or image pairs list")
+            ("output,o", value<string>(&output_path)->default_value(""), "output directory")
             ("segmentations,s", value<string>(&seg_path)->default_value(""), "segmentations directory")
-			("landmarks,l", value<string>(&landmarks_path)->required(), "path to landmarks model file")
-			("model_3dmm_h5", value<string>(&model_3dmm_h5_path)->required(), "path to 3DMM file (.h5)")
-			("model_3dmm_dat", value<string>(&model_3dmm_dat_path)->required(), "path to 3DMM file (.dat)")
-			("reg_model,r", value<string>(&reg_model_path)->required(), "path to 3DMM regression CNN model file (.caffemodel)")
-			("reg_deploy,d", value<string>(&reg_deploy_path)->required(), "path to 3DMM regression CNN deploy file (.prototxt)")
-			("reg_mean,m", value<string>(&reg_mean_path)->required(), "path to 3DMM regression CNN mean file (.binaryproto)")
-			("seg_model", value<string>(&seg_model_path), "path to face segmentation CNN model file (.caffemodel)")
-			("seg_deploy", value<string>(&seg_deploy_path), "path to face segmentation CNN deploy file (.prototxt)")
+            ("landmarks,l", value<string>(&landmarks_path)->default_value(""), "path to landmarks model file")
+            ("model_3dmm_h5", value<string>(&model_3dmm_h5_path)->default_value(""), "path to 3DMM file (.h5)")
+            ("model_3dmm_dat", value<string>(&model_3dmm_dat_path)->default_value(""), "path to 3DMM file (.dat)")
+            ("reg_model,r", value<string>(&reg_model_path)->default_value(""), "path to 3DMM regression CNN model file (.caffemodel)")
+            ("reg_deploy,d", value<string>(&reg_deploy_path)->default_value(""), "path to 3DMM regression CNN deploy file (.prototxt)")
+            ("reg_mean,m", value<string>(&reg_mean_path)->default_value(""), "path to 3DMM regression CNN mean file (.binaryproto)")
+            ("seg_model", value<string>(&seg_model_path), "path to face segmentation CNN model file (.caffemodel)")
+            ("seg_deploy", value<string>(&seg_deploy_path), "path to face segmentation CNN deploy file (.prototxt)")
             ("generic,g", value<bool>(&generic)->default_value(false), "use generic model without shape regression")
             ("expressions,e", value<bool>(&with_expr)->default_value(true), "with expressions")
-			("gpu", value<bool>(&with_gpu)->default_value(true), "toggle GPU / CPU")
-			("gpu_id", value<unsigned int>(&gpu_device_id)->default_value(0), "GPU's device id")
+            ("gpu", value<bool>(&with_gpu)->default_value(true), "toggle GPU / CPU")
+            ("gpu_id", value<unsigned int>(&gpu_device_id)->default_value(0), "GPU's device id")
             ("log", value<string>(&log_path)->default_value("face_swap_batch_log.csv"), "log file path")
             ("cfg", value<string>(&cfg_path)->default_value("face_swap_batch.cfg"), "configuration file (.cfg)")
-			;
-		variables_map vm;
-		store(command_line_parser(argc, argv).options(desc).
-			positional(positional_options_description().add("input", -1)).run(), vm);
+            ;
+        variables_map vm;
+        store(command_line_parser(argc, argv).options(desc).
+            positional(positional_options_description().add("input", -1)).run(), vm);
 
         if (vm.count("help")) {
             cout << "Usage: face_swap_batch [options]" << endl;
@@ -155,44 +164,57 @@ int main(int argc, char* argv[])
             throw error("segmentations must be a path to segmentations directory!");
         if ( !is_directory(output_path))
             throw error("output must be a path to a directory!");
-		if (!is_regular_file(landmarks_path)) throw error("landmarks must be a path to a file!");
-		if (!is_regular_file(model_3dmm_h5_path)) throw error("model_3dmm_h5 must be a path to a file!");
-		if (!is_regular_file(model_3dmm_dat_path)) throw error("model_3dmm_dat must be a path to a file!");
-		if (!is_regular_file(reg_model_path)) throw error("reg_model must be a path to a file!");
-		if (!is_regular_file(reg_deploy_path)) throw error("reg_deploy must be a path to a file!");
-		if (!is_regular_file(reg_mean_path)) throw error("reg_mean must be a path to a file!");
-		if (!seg_model_path.empty() && !is_regular_file(seg_model_path))
-			throw error("seg_model must be a path to a file!");
-		if (!seg_deploy_path.empty() && !is_regular_file(seg_deploy_path))
-			throw error("seg_deploy must be a path to a file!");
-	}
-	catch (const error& e) {
+        if (!is_regular_file(landmarks_path)) throw error("landmarks must be a path to a file!");
+        if (!is_regular_file(model_3dmm_h5_path)) throw error("model_3dmm_h5 must be a path to a file!");
+        if (!is_regular_file(model_3dmm_dat_path)) throw error("model_3dmm_dat must be a path to a file!");
+        if (!is_regular_file(reg_model_path)) throw error("reg_model must be a path to a file!");
+        if (!is_regular_file(reg_deploy_path)) throw error("reg_deploy must be a path to a file!");
+        if (!is_regular_file(reg_mean_path)) throw error("reg_mean must be a path to a file!");
+        if (!seg_model_path.empty() && !is_regular_file(seg_model_path))
+            throw error("seg_model must be a path to a file!");
+        if (!seg_deploy_path.empty() && !is_regular_file(seg_deploy_path))
+            throw error("seg_deploy must be a path to a file!");
+    }
+    catch (const error& e) {
         cerr << "Error while parsing command-line arguments: " << e.what() << endl;
         cerr << "Use --help to display a list of options." << endl;
-		exit(1);
-	}
+        exit(1);
+    }
 
 	try
 	{
         // Intialize OpenGL context
-        QApplication a(argc, argv);
+//        QApplication a(argc, argv);
+//
+//        QSurfaceFormat surfaceFormat;
+//        surfaceFormat.setMajorVersion(1);
+//        surfaceFormat.setMinorVersion(5);
+//
+//        QOpenGLContext openGLContext;
+//        openGLContext.setFormat(surfaceFormat);
+//        openGLContext.create();
+//        if (!openGLContext.isValid()) return -1;
+//
+//        QOffscreenSurface surface;
+//        surface.setFormat(surfaceFormat);
+//        surface.create();
+//        if (!surface.isValid()) return -2;
+//
+//        openGLContext.makeCurrent(&surface);
 
-        QSurfaceFormat surfaceFormat;
-        surfaceFormat.setMajorVersion(1);
-        surfaceFormat.setMinorVersion(5);
-
-        QOpenGLContext openGLContext;
-        openGLContext.setFormat(surfaceFormat);
-        openGLContext.create();
-        if (!openGLContext.isValid()) return -1;
-
-        QOffscreenSurface surface;
-        surface.setFormat(surfaceFormat);
-        surface.create();
-        if (!surface.isValid()) return -2;
-
-        openGLContext.makeCurrent(&surface);
-
+        
+        
+        
+//        gltSetWorkingDirectory(argv[0]);
+        
+//        gltSetWorkingDirectory(argv[0]);
+        glutInit(&argc, argv);
+        glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH | GLUT_STENCIL);
+        glutInitWindowSize(800, 600);
+        glutCreateWindow("Triangle");
+//        glutReshapeFunc(ChangeSize);
+//        glutDisplayFunc(RenderScene);
+        
         // Initialize GLEW
         GLenum err = glewInit();
         if (GLEW_OK != err)
